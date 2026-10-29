@@ -32,7 +32,12 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
+        # A moved tag finds the release of the earlier run, so replace its tarball.
         run: |
-          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/mui-material-*.tgz \
-            --title "$GITHUB_REF_NAME" \
-            --notes "@mui/material $GITHUB_REF_NAME with the fork changes."
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP"/mui-material-*.tgz --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/mui-material-*.tgz \
+              --title "$GITHUB_REF_NAME" \
+              --notes "@mui/material $GITHUB_REF_NAME with the fork changes."
+          fi
