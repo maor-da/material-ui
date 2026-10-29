@@ -30,6 +30,9 @@ const OPENING_MOUSE_UP_BOUNDARY_OFFSET = 2;
 // The initial mouseup may land on an item when the menu opens over the trigger.
 const SELECTED_MOUSE_UP_DELAY = 400;
 const UNSELECTED_MOUSE_UP_DELAY = 200;
+// The pointer must move at least this far, in px, from the opening mousedown
+// before the opening mouseup can select an item.
+const MOUSE_UP_SELECT_MIN_DISTANCE = 5;
 const TYPEAHEAD_RESET_MS = 750;
 const SPACE = ' ';
 const ARROW_UP = 'ArrowUp';
@@ -193,6 +196,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
   const hasSelectedItemInListRef = React.useRef(false);
   const openingMouseUpListenerCleanupRef = React.useRef(null);
   const didPointerDownOnItemRef = React.useRef(false);
+  const openingMouseDownPositionRef = React.useRef(null);
   const selectionRef = React.useRef({
     allowSelectedMouseUp: false,
     allowUnselectedMouseUp: false,
@@ -257,6 +261,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
   const resetMouseUpSelection = React.useCallback(() => {
     clearSelectionTimers();
     didPointerDownOnItemRef.current = false;
+    openingMouseDownPositionRef.current = null;
     selectionRef.current = {
       allowSelectedMouseUp: false,
       allowUnselectedMouseUp: false,
@@ -415,6 +420,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
     const doc = ownerDocument(event.currentTarget);
 
     scheduleMouseUpSelection();
+    openingMouseDownPositionRef.current = { x: event.clientX, y: event.clientY };
     clearOpeningMouseUpListener();
 
     const handleMouseUp = (mouseEvent) => {
@@ -534,6 +540,17 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
     const disallowUnselectedMouseUp = !selectionRef.current.allowUnselectedMouseUp && !selected;
 
     if (disallowSelectedMouseUp || disallowUnselectedMouseUp) {
+      return;
+    }
+
+    // A long list can open over the pointer. A release without movement, such as a slow
+    // click or a touchpad tap, then ends the opening click and must not select.
+    const openingPosition = openingMouseDownPositionRef.current;
+    if (
+      openingPosition &&
+      Math.hypot(event.clientX - openingPosition.x, event.clientY - openingPosition.y) <
+        MOUSE_UP_SELECT_MIN_DISTANCE
+    ) {
       return;
     }
 
